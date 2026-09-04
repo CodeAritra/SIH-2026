@@ -11,7 +11,7 @@ export const App: React.FC = () => {
   const [jurisdiction, setJurisdiction] = useState<Jurisdiction>('india');
   const [sessionId] = useState(() => `session_${Math.random().toString(36).substring(2, 9)}`);
   const [productCategory, setProductCategory] = useState<string | null>(null);
-  const [classificationAnswers, setClassificationAnswers] = useState<Record<string, str>>({});
+  const [classificationAnswers, setClassificationAnswers] = useState<Record<string, string>>({});
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [isEscalateOpen, setIsEscalateOpen] = useState(false);
