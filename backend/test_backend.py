@@ -1,21 +1,26 @@
 """
-Backend Verification Suite for IP-SAKTI Sahayak (LangChain Powered).
+Comprehensive Verification Suite for IP-SAKTI Sahayak (LangChain Powered).
+Validates vector retrieval, classifier state machine, grounding gates, rule checks, and REST API endpoints.
 """
 
 import sys
 import os
+from fastapi.testclient import TestClient
 
+# Add app directory to python path
 sys.path.append(os.path.join(os.path.dirname(__file__), "app"))
+sys.path.append(os.path.dirname(__file__))
 
 from seed_corpus import generate_seed_corpus
 from ingest import ingest_corpus
-from classifier import process_classification_step
+from classifier import process_classification_step, get_initial_question
 from retriever import retrieve_chunks
 from citation_validator import validate_citations
 from llm import generate_grounded_answer
 from rule_checks import check_abs_compliance, check_tkdl_pointer
 from eval_engine import run_evaluation_benchmark
 from database import init_db
+from main import app
 
 def test_full_langchain_pipeline():
     print("1. Initializing database...")
@@ -24,7 +29,7 @@ def test_full_langchain_pipeline():
     print("2. Generating seed corpus and building LangChain vector index...")
     generate_seed_corpus()
     ingest_res = ingest_corpus()
-    print(f"Ingested {ingest_res['total_chunks']} LangChain Document chunks.")
+    print(f"   Ingested {ingest_res['total_chunks']} LangChain Document chunks.")
     assert ingest_res['total_chunks'] > 0
 
     print("3. Testing formulation state machine...")
@@ -34,6 +39,10 @@ def test_full_langchain_pipeline():
     state2 = process_classification_step({"q1_base": "classical"})
     assert state2["status"] == "completed"
     assert state2["category_key"] == "classical"
+
+    state3 = process_classification_step({"q1_base": "food_wellness", "q2_food": "yes"})
+    assert state3["status"] == "completed"
+    assert state3["category_key"] == "ayurveda_aahar"
 
     print("4. Testing LangChain retriever & jurisdiction filter...")
     india_chunks, conf, score = retrieve_chunks("Can I patent traditional knowledge?", jurisdiction="india")
@@ -66,9 +75,66 @@ def test_full_langchain_pipeline():
 
     print("8. Running benchmark evaluation suite on LangChain backend...")
     eval_res = run_evaluation_benchmark("LangChain Unit Test Run")
-    print(f"LangChain Eval Precision@k: {eval_res['precision_at_k']}, Citation Validity: {eval_res['citation_validity_rate']}")
+    print(f"   LangChain Eval Precision@k: {eval_res['precision_at_k']}, Citation Validity: {eval_res['citation_validity_rate']}")
 
-    print("\nSUCCESS: All LangChain backend tests passed clean!")
+    print("9. Testing all FastAPI REST endpoints via TestClient...")
+    client = TestClient(app)
+
+    # Health check
+    res_health = client.get("/api/health")
+    assert res_health.status_code == 200
+    assert res_health.json()["status"] == "online"
+
+    # Start classifier
+    res_start = client.get("/api/classifier/start")
+    assert res_start.status_code == 200
+    assert "question" in res_start.json()
+
+    # Classify step
+    res_classify = client.post("/api/classify", json={"session_id": "test_sess", "answers": {"q1_base": "phytopharma"}})
+    assert res_classify.status_code == 200
+    assert res_classify.json()["status"] == "completed"
+
+    # Chat asking unclassified query (should return needs_classification)
+    res_chat_need = client.post("/api/chat", json={
+        "query": "Can I patent my formulation?",
+        "jurisdiction": "india",
+        "session_id": "test_sess_1",
+        "classification_answers": {}
+    })
+    assert res_chat_need.status_code == 200
+    assert res_chat_need.json()["needs_classification"] == True
+
+    # Chat with completed classification
+    res_chat_done = client.post("/api/chat", json={
+        "query": "Can I patent traditional knowledge?",
+        "jurisdiction": "india",
+        "session_id": "test_sess_2",
+        "override_classification": "Classical Ayurvedic Formulation"
+    })
+    assert res_chat_done.status_code == 200
+    assert res_chat_done.json()["needs_classification"] == False
+    assert "answer" in res_chat_done.json()
+    assert len(res_chat_done.json()["citations"]) > 0
+
+    # Escalate to expert
+    res_esc = client.post("/api/escalate", json={
+        "name": "Dr. Test Practitioner",
+        "email": "test@ayush.org",
+        "query": "Need help registering proprietary tablet with NBA",
+        "product_category": "Proprietary Ayurvedic Medicine",
+        "jurisdiction": "india",
+        "notes": "Testing escalation pipeline"
+    })
+    assert res_esc.status_code == 200
+    assert res_esc.json()["status"] == "success"
+
+    # Metrics & Benchmark run
+    res_metrics = client.get("/api/metrics")
+    assert res_metrics.status_code == 200
+    assert "eval_runs" in res_metrics.json()
+
+    print("\n[SUCCESS] ALL BACKEND PIPELINES & REST API ENDPOINTS PASSED CLEANLY (100% OPERATIONAL)!")
 
 if __name__ == "__main__":
     test_full_langchain_pipeline()
