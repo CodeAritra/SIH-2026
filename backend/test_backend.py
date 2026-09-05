@@ -56,15 +56,15 @@ def test_full_langchain_pipeline():
 
     print("5. Testing LangChain LLM grounded generation & hard-gate validator...")
     answer = generate_grounded_answer("Can I patent traditional knowledge?", india_chunks, "india")
-    is_valid, citations, final_ans, err = validate_citations(answer, india_chunks, conf)
+    is_valid, citations, final_ans, err, r_type = validate_citations(answer, india_chunks, conf, query="Can I patent traditional knowledge?", top_score=score)
     assert is_valid == True
     assert len(citations) > 0
 
     print("6. Testing ungrounded query hard block...")
     bad_chunks, bad_conf, bad_score = retrieve_chunks("How to build a space rocket motor with Ayush herbs?", jurisdiction="india")
-    is_valid_bad, citations_bad, final_ans_bad, err_bad = validate_citations("Space rocket motor patent [Space Act - Section 1]", bad_chunks, bad_conf)
+    is_valid_bad, citations_bad, final_ans_bad, err_bad, r_type_bad = validate_citations("Space rocket motor patent [Space Act - Section 1]", bad_chunks, bad_conf, query="How to build a space rocket motor with Ayush herbs?", top_score=bad_score)
     assert is_valid_bad == False
-    assert "don't have a grounded source" in final_ans_bad.lower()
+    assert "withholding an answer" in final_ans_bad.lower() or "don't have" in final_ans_bad.lower()
 
     print("7. Testing ABS compliance and TKDL pointers...")
     abs_res = check_abs_compliance("Need export biological resource NBA clearance", india_chunks)

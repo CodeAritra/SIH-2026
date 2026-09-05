@@ -132,17 +132,24 @@ def chat_endpoint(req: ChatRequest):
         product_category=product_category_name
     )
 
-    # Step 4: Hard-gate citation enforcement validator
-    is_valid, citations, final_answer, fail_reason = validate_citations(
+    # Step 4: Hard-gate citation enforcement & domain boundary validator
+    is_valid, citations, final_answer, fail_reason, response_type = validate_citations(
         llm_answer=draft_answer,
         retrieved_chunks=retrieved_chunks,
-        min_confidence=confidence
+        min_confidence=confidence,
+        query=query,
+        top_score=top_score
     )
 
-    # Step 5: ABS compliance & TKDL pointer rule checks
-    abs_alert = check_abs_compliance(query, retrieved_chunks)
-    tkdl_pointer = check_tkdl_pointer(category_key, query)
-    registry_links = get_registry_pointers(retrieved_chunks)
+    # Step 5: ABS compliance & TKDL pointer rule checks (Only for in-domain legal queries!)
+    if response_type in ["greeting", "out_of_domain"]:
+        abs_alert = {"triggered": False, "title": None, "message": None}
+        tkdl_pointer = {"triggered": False, "title": None, "message": None}
+        registry_links = []
+    else:
+        abs_alert = check_abs_compliance(query, retrieved_chunks)
+        tkdl_pointer = check_tkdl_pointer(category_key, query)
+        registry_links = get_registry_pointers(retrieved_chunks)
 
     # Step 6: Log query to SQLite audit database
     log_id = log_query(
