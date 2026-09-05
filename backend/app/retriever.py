@@ -83,25 +83,44 @@ def retrieve_chunks(query: str, jurisdiction: str = "india", top_k: int = 5) -> 
             client = QdrantClient(url=qdrant_url, api_key=qdrant_key)
             embeddings = FakeEmbeddings(size=128)
             
+            # Ensure Qdrant payload index for metadata.jurisdiction exists
+            try:
+                from qdrant_client.models import PayloadSchemaType
+                client.create_payload_index(
+                    collection_name="ayush_ip_corpus_langchain",
+                    field_name="metadata.jurisdiction",
+                    field_schema=PayloadSchemaType.KEYWORD
+                )
+            except Exception:
+                pass
+
             qdrant_store = QdrantVectorStore(
                 client=client,
                 collection_name="ayush_ip_corpus_langchain",
                 embedding=embeddings
             )
 
-            # Similarity search with Qdrant metadata filter
-            results_with_score = qdrant_store.similarity_search_with_score(
-                query=query,
-                k=top_k,
-                filter=Filter(
-                    must=[
-                        FieldCondition(
-                            key="metadata.jurisdiction",
-                            match=MatchValue(value=target_jurisdiction)
-                        )
-                    ]
+            # Similarity search with Qdrant metadata filter, fallback to local filtering if Qdrant index error
+            try:
+                results_with_score = qdrant_store.similarity_search_with_score(
+                    query=query,
+                    k=top_k,
+                    filter=Filter(
+                        must=[
+                            FieldCondition(
+                                key="metadata.jurisdiction",
+                                match=MatchValue(value=target_jurisdiction)
+                            )
+                        ]
+                    )
                 )
-            )
+            except Exception as filter_err:
+                logger.warning(f"Qdrant filtered vector search error ({filter_err}). Falling back to Qdrant search with local jurisdiction filter.")
+                unfiltered_results = qdrant_store.similarity_search_with_score(query=query, k=top_k * 3)
+                results_with_score = [
+                    (doc, score) for doc, score in unfiltered_results
+                    if str(doc.metadata.get("jurisdiction", "")).lower() == target_jurisdiction
+                ][:top_k]
 
             scored_chunks = []
             for doc, score in results_with_score:

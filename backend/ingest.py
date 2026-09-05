@@ -130,6 +130,17 @@ def ingest_corpus() -> Dict[str, Any]:
             api_key=qdrant_key,
             collection_name="ayush_ip_corpus_langchain"
         )
+
+        try:
+            from qdrant_client.models import PayloadSchemaType
+            client.create_payload_index(
+                collection_name="ayush_ip_corpus_langchain",
+                field_name="metadata.jurisdiction",
+                field_schema=PayloadSchemaType.KEYWORD
+            )
+        except Exception as idx_err:
+            logger.debug(f"Qdrant payload index creation note: {idx_err}")
+
         qdrant_status = f"Successfully uploaded {len(all_docs)} LangChain Document vectors directly to Qdrant Cloud collection 'ayush_ip_corpus_langchain'."
         logger.info(qdrant_status)
         return {

@@ -1,8 +1,8 @@
 """
-Groq LLM Interface for IP-SAKTI Sahayak (LangChain Expression Language - LCEL).
-Uses ChatGroq (llama-3.3-70b-versatile), ChatPromptTemplate, and StrOutputParser
-with strict cite-or-abstain grounding system prompt.
-Includes offline grounded fallback generator when GROQ_API_KEY is not provided.
+Gemini LLM Interface for IP-SAKTI Sahayak (LangChain Expression Language - LCEL).
+Uses ChatGoogleGenerativeAI (gemini-1.5-flash / gemini-2.0-flash / gemini-1.5-pro),
+ChatPromptTemplate, and StrOutputParser with strict cite-or-abstain grounding system prompt.
+Includes offline grounded fallback generator when GEMINI_API_KEY is not provided or fails.
 """
 
 import os
@@ -35,9 +35,10 @@ def generate_grounded_answer(
     product_category: str = "Unspecified Formulation"
 ) -> str:
     """
-    Calls LangChain ChatGroq LCEL chain or generates offline grounded fallback response.
+    Calls LangChain ChatGoogleGenerativeAI (Gemini) LCEL chain or generates offline grounded fallback response.
     """
-    groq_key = os.getenv("GROQ_API_KEY")
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    logger.info(f"[LLM] Using Gemini with key: {'YES' if gemini_key else 'NO'}")
 
     # Format context chunks into readable text for LangChain prompt
     context_text = "\n\n".join([
@@ -50,13 +51,9 @@ def generate_grounded_answer(
         for i, c in enumerate(retrieved_chunks)
     ])
 
-    if groq_key:
-        try:
-            from langchain_groq import ChatGroq
-
-            prompt = ChatPromptTemplate.from_messages([
-                SystemMessagePromptTemplate.from_template(SYSTEM_GROUNDING_PROMPT),
-                HumanMessagePromptTemplate.from_template("""
+    prompt = ChatPromptTemplate.from_messages([
+        SystemMessagePromptTemplate.from_template(SYSTEM_GROUNDING_PROMPT),
+        HumanMessagePromptTemplate.from_template("""
 USER JURISDICTION: {jurisdiction}
 PRODUCT CATEGORY: {product_category}
 
@@ -69,28 +66,96 @@ RETRIEVED LEGAL CONTEXT CHUNKS:
 INSTRUCTIONS:
 Provide a clear, direct, grounded answer to the user query. Cite the specific source section in brackets after every legal point.
 """)
-            ])
+    ])
 
-            llm = ChatGroq(
-                groq_api_key=groq_key,
-                model_name="llama-3.3-70b-versatile",
-                temperature=0.1,
-                max_tokens=800
-            )
-
-            # Build LangChain Expression Language (LCEL) chain
-            chain = prompt | llm | StrOutputParser()
-
-            result = chain.invoke({
-                "jurisdiction": jurisdiction.upper(),
-                "product_category": product_category,
-                "query": query,
-                "context_text": context_text
-            })
-
-            return result.strip()
+    # Exclusive LLM Route: Google Gemini via LangChain & Native SDKs
+    if gemini_key:
+        models = ["gemini-3.5-flash-lite"]
+        # Route A: LangChain ChatGoogleGenerativeAI
+        logger.info("[LLM ROUTE A] Attempting LangChain ChatGoogleGenerativeAI pipeline...")
+        try:
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            for gem_model in models:
+                try:
+                    logger.info(f"[LLM ROUTE A] Trying model '{gem_model}' via LangChain...")
+                    llm = ChatGoogleGenerativeAI(
+                        model=gem_model,
+                        google_api_key=gemini_key,
+                        temperature=0.1,
+                        max_output_tokens=800
+                    )
+                    chain = prompt | llm | StrOutputParser()
+                    result = chain.invoke({
+                        "jurisdiction": jurisdiction.upper(),
+                        "product_category": product_category,
+                        "query": query,
+                        "context_text": context_text
+                    })
+                    if result and result.strip():
+                        logger.info(f"✅ [LLM SUCCESS] Answer successfully generated via Route A: LangChain ChatGoogleGenerativeAI ({gem_model})")
+                        return result.strip()
+                except Exception as gem_err:
+                    logger.warning(f"❌ [LLM ROUTE A FAILED] Model '{gem_model}' error: {gem_err}")
         except Exception as e:
-            logger.warning(f"LangChain ChatGroq chain failed ({str(e)}). Using grounded offline generator.")
+            logger.warning(f"❌ [LLM ROUTE A IMPORT FAILED] langchain_google_genai error: {e}")
+
+        # Route B: Direct Google GenAI API Fallback (google.genai)
+        logger.info("[LLM ROUTE B] Attempting direct google.genai SDK pipeline...")
+        try:
+            full_prompt = (
+                f"{SYSTEM_GROUNDING_PROMPT}\n\n"
+                f"USER JURISDICTION: {jurisdiction.upper()}\n"
+                f"PRODUCT CATEGORY: {product_category}\n\n"
+                f"USER QUERY:\n\"{query}\"\n\n"
+                f"RETRIEVED LEGAL CONTEXT CHUNKS:\n{context_text}\n\n"
+                f"INSTRUCTIONS:\n"
+                f"Provide a clear, direct, grounded answer to the user query. Cite the specific source section in brackets after every legal point."
+            )
+            try:
+                from google import genai
+                from google.genai import types
+                client = genai.Client(api_key=gemini_key)
+                config = types.GenerateContentConfig(
+                    temperature=0.1,
+                    max_output_tokens=800
+                )
+                for g_model_name in models:
+                    try:
+                        logger.info(f"[LLM ROUTE B] Trying model '{g_model_name}' via google.genai SDK...")
+                        response = client.models.generate_content(
+                            model=g_model_name,
+                            contents=full_prompt,
+                            config=config
+                        )
+                        if response and response.text:
+                            logger.info(f"✅ [LLM SUCCESS] Answer successfully generated via Route B: google.genai SDK ({g_model_name})")
+                            return response.text.strip()
+                    except Exception as g_err:
+                        logger.warning(f"❌ [LLM ROUTE B FAILED] Model '{g_model_name}' error: {g_err}")
+            except Exception as g_imp_err:
+                logger.warning(f"❌ [LLM ROUTE B IMPORT FAILED] google.genai import error: {g_imp_err}")
+
+            # Route C: Direct Google GenerativeAI API Fallback (google.generativeai)
+            logger.info("[LLM ROUTE C] Attempting legacy google.generativeai SDK pipeline...")
+            try:
+                import google.generativeai as genai_legacy
+                genai_legacy.configure(api_key=gemini_key)
+                for g_model_name in models:
+                    try:
+                        logger.info(f"[LLM ROUTE C] Trying model '{g_model_name}' via google.generativeai SDK...")
+                        g_model = genai_legacy.GenerativeModel(g_model_name)
+                        res = g_model.generate_content(full_prompt)
+                        if res and res.text:
+                            logger.info(f"✅ [LLM SUCCESS] Answer successfully generated via Route C: google.generativeai SDK ({g_model_name})")
+                            return res.text.strip()
+                    except Exception as g_leg_err:
+                        logger.warning(f"❌ [LLM ROUTE C FAILED] Model '{g_model_name}' error: {g_leg_err}")
+            except Exception as g_leg_imp_err:
+                logger.warning(f"❌ [LLM ROUTE C IMPORT FAILED] google.generativeai import error: {g_leg_imp_err}")
+        except Exception as api_err:
+            logger.warning(f"❌ [LLM DIRECT FALLBACK FAILED] Error: {api_err}")
+
+    logger.warning("⚠️ [LLM OFFLINE FALLBACK] All online Gemini LLM routes failed or key invalid. Using grounded offline generator.")
 
     # Offline grounded fallback generator
     if not retrieved_chunks:
