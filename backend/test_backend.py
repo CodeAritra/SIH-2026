@@ -60,11 +60,23 @@ def test_full_langchain_pipeline():
     assert is_valid == True
     assert len(citations) > 0
 
-    print("6. Testing ungrounded query hard block...")
+    print("6. Testing domain guardrails (greetings, out-of-domain rejection, ungrounded queries)...")
+    # Greetings test
+    _, _, greet_ans, _, greet_rtype = validate_citations("Hi!", [], "Low", query="hii", top_score=0.0)
+    assert greet_rtype == "greeting"
+    assert "IP-SAKTI Sahayak" in greet_ans
+
+    # Out of domain query test
+    _, _, ood_ans, _, ood_rtype = validate_citations("2+2=4", [], "Low", query="2+2", top_score=0.0)
+    assert ood_rtype == "out_of_domain"
+    assert "outside the domain" in ood_ans.lower()
+
+    # Ungrounded in-domain query test
     bad_chunks, bad_conf, bad_score = retrieve_chunks("How to build a space rocket motor with Ayush herbs?", jurisdiction="india")
     is_valid_bad, citations_bad, final_ans_bad, err_bad, r_type_bad = validate_citations("Space rocket motor patent [Space Act - Section 1]", bad_chunks, bad_conf, query="How to build a space rocket motor with Ayush herbs?", top_score=bad_score)
     assert is_valid_bad == False
-    assert "withholding an answer" in final_ans_bad.lower() or "don't have" in final_ans_bad.lower()
+    assert r_type_bad == "ungrounded"
+    assert "don't have" in final_ans_bad.lower() or "knowledge" in final_ans_bad.lower()
 
     print("7. Testing ABS compliance and TKDL pointers...")
     abs_res = check_abs_compliance("Need export biological resource NBA clearance", india_chunks)

@@ -24,6 +24,82 @@ const QUICK_PROMPTS = [
   { label: 'WIPO GRTK Treaty 2024', text: 'What is the mandatory patent disclosure requirement under the 2024 WIPO Genetic Resources Treaty?' }
 ];
 
+const parseInlineMarkdown = (text: string) => {
+  if (!text) return null;
+  const tokens = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+  return tokens.map((token, i) => {
+    if (token.startsWith('**') && token.endsWith('**')) {
+      return (
+        <strong key={i} className="font-semibold text-emerald-300">
+          {token.slice(2, -2)}
+        </strong>
+      );
+    } else if (token.startsWith('*') && token.endsWith('*')) {
+      return (
+        <em key={i} className="italic text-slate-300">
+          {token.slice(1, -1)}
+        </em>
+      );
+    }
+    return token;
+  });
+};
+
+const renderFormattedText = (text: string) => {
+  if (!text) return null;
+
+  const paragraphs = text.split(/\n\n+/);
+
+  return (
+    <div className="space-y-3">
+      {paragraphs.map((para, pIdx) => {
+        const trimmed = para.trim();
+
+        // Horizontal rule like --- or ***
+        if (/^[\-\*_]{3,}$/.test(trimmed)) {
+          return <hr key={pIdx} className="border-slate-800 my-2" />;
+        }
+
+        const lines = trimmed.split('\n');
+        return (
+          <div key={pIdx} className="space-y-1">
+            {lines.map((line, lIdx) => {
+              let cleanLine = line.trim();
+
+              // Headers like # Header or ## Header
+              if (cleanLine.startsWith('#')) {
+                cleanLine = cleanLine.replace(/^#+\s*/, '');
+                return (
+                  <div key={lIdx} className="font-bold text-slate-100 text-xs mt-2 mb-1">
+                    {parseInlineMarkdown(cleanLine)}
+                  </div>
+                );
+              }
+
+              // List items starting with - or *
+              if (/^[\-\*]\s+/.test(cleanLine)) {
+                cleanLine = cleanLine.replace(/^[\-\*]\s+/, '');
+                return (
+                  <div key={lIdx} className="flex items-start space-x-2 pl-2 text-slate-200">
+                    <span className="text-emerald-400 font-bold">•</span>
+                    <div>{parseInlineMarkdown(cleanLine)}</div>
+                  </div>
+                );
+              }
+
+              return (
+                <div key={lIdx} className="leading-relaxed">
+                  {parseInlineMarkdown(cleanLine)}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   messages,
   onSendMessage,
@@ -114,170 +190,176 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </div>
         )}
 
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
-          >
-            {/* User Message */}
-            {msg.sender === 'user' ? (
-              <div className="max-w-2xl px-4 py-3 rounded-2xl bg-emerald-600 text-white text-xs font-medium shadow-md shadow-emerald-950/30">
-                {msg.text}
-              </div>
-            ) : (
-              /* Bot Response Card */
-              <div className="max-w-3xl w-full glass-panel rounded-2xl p-5 border border-slate-800 space-y-4 shadow-xl">
-                
-                {/* Response Header (Confidence Badge & Category) */}
-                <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-                  <div className="flex items-center space-x-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                    <span className="text-xs font-bold text-slate-200">IP-SAKTI Sahayak</span>
-                    {msg.product_category && (
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-medium">
-                        {msg.product_category}
-                      </span>
-                    )}
-                  </div>
+        {messages.map((msg) => {
+          const isGroundedDomain = msg.response_type === 'grounded' || Boolean(msg.citations && msg.citations.length > 0);
 
-                  {msg.confidence && (
-                    <div className="flex items-center space-x-1.5">
-                      <span className="text-[10px] font-semibold text-slate-400">Retrieval Confidence:</span>
-                      <span
-                        className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                          msg.confidence === 'High'
-                            ? 'badge-high'
-                            : msg.confidence === 'Medium'
-                            ? 'badge-medium'
-                            : 'badge-low'
-                        }`}
-                      >
-                        {msg.confidence} {msg.top_score ? `(${Math.round(msg.top_score * 100)}%)` : ''}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Hard-Gate Block Banner if applies */}
-                {msg.is_blocked && (
-                  <div className="flex items-start space-x-2.5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
-                    <Lock className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
-                    <div>
-                      <span className="font-bold">Hard-Gate Citation Enforcement Active:</span> Ungrounded claims blocked. Showing safe abstention notice.
-                    </div>
-                  </div>
-                )}
-
-                {/* Inline Formulation Classifier Modal */}
-                {msg.needs_classification && msg.classifier_question && (
-                  <ClassifierModal
-                    question={msg.classifier_question}
-                    onSelectOption={onClassifierAnswer}
-                  />
-                )}
-
-                {/* Main Grounded Answer Text */}
-                <div className="text-xs text-slate-200 leading-relaxed whitespace-pre-line font-normal">
+          return (
+            <div
+              key={msg.id}
+              className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
+            >
+              {/* User Message */}
+              {msg.sender === 'user' ? (
+                <div className="max-w-2xl px-4 py-3 rounded-2xl bg-emerald-600 text-white text-xs font-medium shadow-md shadow-emerald-950/30">
                   {msg.text}
                 </div>
-
-                {/* ABS Compliance Alert Banner */}
-                {msg.abs_alert && msg.abs_alert.triggered && (
-                  <div className="flex items-start space-x-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
-                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
-                    <div>
-                      <div className="font-bold">{msg.abs_alert.title}</div>
-                      <div className="mt-0.5 text-[11px] text-amber-200/90 leading-tight">{msg.abs_alert.message}</div>
-                    </div>
-                  </div>
-                )}
-
-                {/* TKDL Prior-Art Pointer */}
-                {msg.tkdl_pointer && msg.tkdl_pointer.triggered && (
-                  <div className="flex items-start space-x-2.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs">
-                    <BookOpen className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
-                    <div>
-                      <div className="font-bold">{msg.tkdl_pointer.title}</div>
-                      <div className="mt-0.5 text-[11px] text-emerald-200/90 leading-tight">{msg.tkdl_pointer.message}</div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Citations Accordion */}
-                {msg.citations && msg.citations.length > 0 && (
-                  <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/40">
-                    <button
-                      onClick={() => toggleCitation(msg.id)}
-                      className="w-full flex items-center justify-between p-3 text-xs font-semibold text-slate-300 hover:bg-slate-800/50 transition-all"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Grounded Source Citations ({msg.citations.length})</span>
-                      </div>
-                      {expandedCitations[msg.id] ? (
-                        <ChevronUp className="w-4 h-4 text-slate-400" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
+              ) : (
+                /* Bot Response Card */
+                <div className="max-w-3xl w-full glass-panel rounded-2xl p-5 border border-slate-800 space-y-4 shadow-xl">
+                  
+                  {/* Response Header */}
+                  <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                    <div className="flex items-center space-x-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <span className="text-xs font-bold text-slate-200">IP-SAKTI Sahayak</span>
+                      {isGroundedDomain && msg.product_category && (
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-medium">
+                          {msg.product_category}
+                        </span>
                       )}
-                    </button>
+                    </div>
 
-                    {expandedCitations[msg.id] && (
-                      <div className="p-3 border-t border-slate-800 space-y-2 bg-slate-950/40">
-                        {msg.citations.map((c, cIdx) => (
-                          <div key={cIdx} className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 text-xs space-y-1">
-                            <div className="flex items-center justify-between font-bold text-emerald-400">
-                              <span>{c.source_title}</span>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 uppercase">
-                                {c.source_section}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-slate-400 italic">"{c.snippet}"</p>
-                          </div>
-                        ))}
+                    {isGroundedDomain && msg.confidence && (
+                      <div className="flex items-center space-x-1.5">
+                        <span className="text-[10px] font-semibold text-slate-400">Retrieval Confidence:</span>
+                        <span
+                          className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                            msg.confidence === 'High'
+                              ? 'badge-high'
+                              : msg.confidence === 'Medium'
+                              ? 'badge-medium'
+                              : 'badge-low'
+                          }`}
+                        >
+                          {msg.confidence} {msg.top_score ? `(${Math.round(msg.top_score * 100)}%)` : ''}
+                        </span>
                       </div>
                     )}
                   </div>
-                )}
 
-                {/* External Registry Buttons */}
-                {msg.registry_links && msg.registry_links.length > 0 && (
-                  <div className="pt-1 flex flex-wrap gap-2">
-                    {msg.registry_links.map((link, lIdx) => (
-                      <a
-                        key={lIdx}
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium border border-slate-700/60 transition-all"
-                      >
-                        <span>{link.name}</span>
-                        <ExternalLink className="w-3 h-3 text-slate-400" />
-                      </a>
-                    ))}
+                  {/* Hard-Gate Block Banner if applies */}
+                  {msg.is_blocked && (
+                    <div className="flex items-start space-x-2.5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+                      <Lock className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
+                      <div>
+                        <span className="font-bold">Hard-Gate Citation Enforcement Active:</span> Ungrounded claims blocked. Showing safe abstention notice.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Inline Formulation Classifier Modal */}
+                  {msg.needs_classification && msg.classifier_question && (
+                    <ClassifierModal
+                      question={msg.classifier_question}
+                      onSelectOption={onClassifierAnswer}
+                    />
+                  )}
+
+                  {/* Main Grounded Answer Text */}
+                  <div className="text-xs text-slate-200 leading-relaxed font-normal">
+                    {renderFormattedText(msg.text)}
                   </div>
-                )}
 
-                {/* Footer Disclaimer & Escalate Action */}
-                <div className="flex items-center justify-between pt-2 border-t border-slate-800/60 text-[10px] text-slate-500">
-                  <span>Informational guidance only • Not legal advice</span>
-                  <button
-                    onClick={() => onOpenEscalate(msg.text)}
-                    className="text-amber-400 hover:underline flex items-center space-x-1"
-                  >
-                    <AlertCircle className="w-3 h-3" />
-                    <span>Escalate query to human expert</span>
-                  </button>
+                  {/* ABS Compliance Alert Banner */}
+                  {isGroundedDomain && msg.abs_alert && msg.abs_alert.triggered && (
+                    <div className="flex items-start space-x-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+                      <div>
+                        <div className="font-bold">{msg.abs_alert.title}</div>
+                        <div className="mt-0.5 text-[11px] text-amber-200/90 leading-tight">{msg.abs_alert.message}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TKDL Prior-Art Pointer */}
+                  {isGroundedDomain && msg.tkdl_pointer && msg.tkdl_pointer.triggered && (
+                    <div className="flex items-start space-x-2.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs">
+                      <BookOpen className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
+                      <div>
+                        <div className="font-bold">{msg.tkdl_pointer.title}</div>
+                        <div className="mt-0.5 text-[11px] text-emerald-200/90 leading-tight">{msg.tkdl_pointer.message}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Citations Accordion */}
+                  {msg.citations && msg.citations.length > 0 && (
+                    <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/40">
+                      <button
+                        onClick={() => toggleCitation(msg.id)}
+                        className="w-full flex items-center justify-between p-3 text-xs font-semibold text-slate-300 hover:bg-slate-800/50 transition-all"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Grounded Source Citations ({msg.citations.length})</span>
+                        </div>
+                        {expandedCitations[msg.id] ? (
+                          <ChevronUp className="w-4 h-4 text-slate-400" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-slate-400" />
+                        )}
+                      </button>
+
+                      {expandedCitations[msg.id] && (
+                        <div className="p-3 border-t border-slate-800 space-y-2 bg-slate-950/40">
+                          {msg.citations.map((c, cIdx) => (
+                            <div key={cIdx} className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 text-xs space-y-1">
+                              <div className="flex items-center justify-between font-bold text-emerald-400">
+                                <span>{c.source_title}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 uppercase">
+                                  {c.source_section}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-400 italic">"{c.snippet}"</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* External Registry Buttons */}
+                  {isGroundedDomain && msg.registry_links && msg.registry_links.length > 0 && (
+                    <div className="pt-1 flex flex-wrap gap-2">
+                      {msg.registry_links.map((link, lIdx) => (
+                        <a
+                          key={lIdx}
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium border border-slate-700/60 transition-all"
+                        >
+                          <span>{link.name}</span>
+                          <ExternalLink className="w-3 h-3 text-slate-400" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Footer Disclaimer & Escalate Action */}
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-800/60 text-[10px] text-slate-500">
+                    <span>Informational guidance only • Not legal advice</span>
+                    {isGroundedDomain && (
+                      <button
+                        onClick={() => onOpenEscalate(msg.text)}
+                        className="text-amber-400 hover:underline flex items-center space-x-1"
+                      >
+                        <AlertCircle className="w-3 h-3" />
+                        <span>Escalate query to human expert</span>
+                      </button>
+                    )}
+                  </div>
+
                 </div>
-
-              </div>
-            )}
-          </div>
-        ))}
+              )}
+            </div>
+          );
+        })}
 
         {loading && (
           <div className="flex items-center space-x-2 text-xs text-slate-400 p-4">
             <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
-            <span>Retrieving grounded legal chunks & analyzing via Groq...</span>
+            <span>Retrieving grounded legal chunks & analyzing via Gemini...</span>
           </div>
         )}
 

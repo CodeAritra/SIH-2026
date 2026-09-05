@@ -68,7 +68,8 @@ export const App: React.FC = () => {
           abs_alert: data.abs_alert,
           tkdl_pointer: data.tkdl_pointer,
           registry_links: data.registry_links,
-          is_blocked: data.is_blocked
+          is_blocked: data.is_blocked,
+          response_type: data.response_type
         };
         setMessages((prev) => [...prev, botMsg]);
       }

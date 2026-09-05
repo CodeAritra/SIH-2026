@@ -179,6 +179,7 @@ def chat_endpoint(req: ChatRequest):
         "product_category": product_category_name,
         "disclaimer": STANDING_DISCLAIMER,
         "is_blocked": not is_valid,
+        "response_type": response_type,
         "abs_alert": abs_alert if abs_alert["triggered"] else None,
         "tkdl_pointer": tkdl_pointer if tkdl_pointer["triggered"] else None,
         "registry_links": registry_links,

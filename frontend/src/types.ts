@@ -46,6 +46,7 @@ export interface Message {
   tkdl_pointer?: RuleAlert | null;
   registry_links?: RegistryLink[];
   is_blocked?: boolean;
+  response_type?: 'grounded' | 'greeting' | 'out_of_domain' | 'ungrounded';
   needs_classification?: boolean;
   classifier_question?: ClassifierQuestion;
 }
