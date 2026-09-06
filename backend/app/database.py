@@ -70,6 +70,17 @@ def init_db():
     conn.commit()
     conn.close()
 
+def _sanitize_chunks(chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    clean = []
+    for c in chunks:
+        clean.append({
+            "chunk_id": c.get("chunk_id", ""),
+            "text": c.get("text", "")[:300],
+            "metadata": c.get("metadata", {}),
+            "score": c.get("score", 0.0)
+        })
+    return clean
+
 def log_query(
     session_id: str,
     user_query: str,
@@ -87,6 +98,7 @@ def log_query(
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
+    clean_chunks = _sanitize_chunks(retrieved_chunks)
     timestamp = datetime.utcnow().isoformat()
     cursor.execute("""
     INSERT INTO query_logs (
@@ -96,7 +108,7 @@ def log_query(
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         timestamp, session_id, user_query, jurisdiction, classification,
-        json.dumps(retrieved_chunks), llm_raw_answer, json.dumps(citations),
+        json.dumps(clean_chunks), llm_raw_answer, json.dumps(citations),
         confidence, is_blocked, abs_triggered, tkdl_triggered
     ))
     
@@ -104,6 +116,7 @@ def log_query(
     conn.commit()
     conn.close()
     return log_id
+
 
 def log_escalation(
     name: str,
