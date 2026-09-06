@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Send, Sparkles, AlertTriangle, ShieldCheck, ExternalLink, 
-  BookOpen, ChevronDown, ChevronUp, AlertCircle, RefreshCw, Lock 
+  BookOpen, ChevronDown, ChevronUp, AlertCircle, RefreshCw, Lock,
+  Network, FlaskConical, ShieldAlert, Award
 } from 'lucide-react';
-import { Message, Jurisdiction, ClassifierQuestion } from '../types';
+import { Message, Jurisdiction } from '../types';
 import { ClassifierModal } from './ClassifierModal';
 
 interface ChatInterfaceProps {
@@ -15,11 +16,16 @@ interface ChatInterfaceProps {
   productCategory: string | null;
   onOpenEscalate: (query?: string) => void;
   onResetSession: () => void;
+  onOpenDPDPCertificate?: (logId: number) => void;
+  onNavigateToKnowledgeGraph?: () => void;
+  onNavigateToSynergy?: () => void;
+  selectedLanguage: string;
 }
 
 const QUICK_PROMPTS = [
   { label: 'Traditional Knowledge Patentability', text: 'Can I patent an Ayurvedic herbal formulation based on classical texts?' },
-  { label: 'NBA / ABS Clearance', text: 'Do non-citizens need NBA clearance before applying for patents using Indian biological resources?' },
+  { label: 'NBA / ABS Clearance Mandate', text: 'Do non-citizens need NBA clearance before applying for patents using Indian biological resources?' },
+  { label: 'Section 3(e) Synergism Proof', text: 'How can I prove synergistic efficacy under Section 3(e) for a polyherbal formulation of Ashwagandha and Curcumin?' },
   { label: 'FSSAI Ayurveda-Aahar Rules', text: 'What are the packaging and disease-claim rules for FSSAI Ayurveda-Aahar food supplements?' },
   { label: 'WIPO GRTK Treaty 2024', text: 'What is the mandatory patent disclosure requirement under the 2024 WIPO Genetic Resources Treaty?' }
 ];
@@ -32,7 +38,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   jurisdiction,
   productCategory,
   onOpenEscalate,
-  onResetSession
+  onResetSession,
+  onOpenDPDPCertificate,
+  onNavigateToKnowledgeGraph,
+  onNavigateToSynergy,
+  selectedLanguage
 }) => {
   const [inputQuery, setInputQuery] = useState('');
   const [expandedCitations, setExpandedCitations] = useState<Record<string, boolean>>({});
@@ -65,18 +75,23 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <div className="flex items-center space-x-3 text-xs">
           <div className="flex items-center space-x-1.5 font-semibold text-slate-300">
             <span className="text-sm">{jurisdiction === 'india' ? '🇮🇳' : '🌐'}</span>
-            <span className="capitalize">{jurisdiction} Jurisdiction Filter Active</span>
+            <span className="capitalize">{jurisdiction} Jurisdiction Active</span>
           </div>
           <span className="text-slate-600">•</span>
           <div className="flex items-center space-x-1 text-slate-400">
             <span>Product Type:</span>
             <span className="text-emerald-400 font-semibold">{productCategory || 'Not yet classified'}</span>
           </div>
+          <span className="text-slate-600 hidden sm:inline">•</span>
+          <div className="hidden sm:flex items-center space-x-1 text-indigo-300">
+            <span>Lang:</span>
+            <span className="uppercase font-mono font-bold">{selectedLanguage}</span>
+          </div>
         </div>
 
         <button
           onClick={onResetSession}
-          className="flex items-center space-x-1 text-[11px] text-slate-400 hover:text-slate-200 px-2 py-1 rounded-lg hover:bg-slate-800 transition-all"
+          className="flex items-center space-x-1 text-[11px] text-slate-400 hover:text-slate-200 px-2.5 py-1 rounded-lg hover:bg-slate-800 transition-all cursor-pointer"
           title="Reset session and formulation classification"
         >
           <RefreshCw className="w-3 h-3" />
@@ -87,14 +102,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       {/* Message Feed */}
       <div className="flex-1 overflow-y-auto space-y-4 pr-2">
         {messages.length === 0 && (
-          <div className="py-12 text-center space-y-4 max-w-md mx-auto">
+          <div className="py-8 text-center space-y-4 max-w-lg mx-auto">
             <div className="w-16 h-16 rounded-2xl ayush-gradient flex items-center justify-center mx-auto shadow-xl shadow-emerald-950/50 border border-emerald-500/30">
               <Sparkles className="w-8 h-8 text-emerald-400" />
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100">Welcome to IP-SAKTI Sahayak</h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Your RAG-grounded assistant for Ayurvedic patents, traditional knowledge (TKDL), ABS compliance, and regulatory drug approvals.
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                Your domain-specialized RAG & Knowledge-Graph decision support assistant for Ayurvedic patents, traditional knowledge (TKDL), ABS clearance under BDA 2023, and Section 3(e) synergism.
               </p>
             </div>
 
@@ -104,7 +119,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 <button
                   key={idx}
                   onClick={() => onSendMessage(qp.text)}
-                  className="p-3 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 text-left text-xs transition-all group"
+                  className="p-3 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 text-left text-xs transition-all group cursor-pointer"
                 >
                   <div className="font-semibold text-emerald-400 group-hover:text-emerald-300">{qp.label}</div>
                   <div className="text-slate-400 text-[11px] truncate mt-0.5">{qp.text}</div>
@@ -128,7 +143,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               /* Bot Response Card */
               <div className="max-w-3xl w-full glass-panel rounded-2xl p-5 border border-slate-800 space-y-4 shadow-xl">
                 
-                {/* Response Header (Confidence Badge & Category) */}
+                {/* Response Header (Confidence Badge, DPDP SHA-256 Seal) */}
                 <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
                   <div className="flex items-center space-x-2">
                     <ShieldCheck className="w-4 h-4 text-emerald-400" />
@@ -140,9 +155,21 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     )}
                   </div>
 
-                  {msg.confidence && (
-                    <div className="flex items-center space-x-1.5">
-                      <span className="text-[10px] font-semibold text-slate-400">Retrieval Confidence:</span>
+                  <div className="flex items-center gap-2">
+                    {/* DPDP SHA-256 Verified Badge */}
+                    {msg.log_id && onOpenDPDPCertificate && (
+                      <button
+                        onClick={() => onOpenDPDPCertificate(msg.log_id!)}
+                        className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-[10px] text-emerald-300 hover:bg-emerald-900 transition-colors font-mono cursor-pointer"
+                        title="View DPDP Cryptographic Audit Certificate"
+                      >
+                        <Lock className="w-3 h-3 text-emerald-400" />
+                        <span>SHA-256 Verified</span>
+                      </button>
+                    )}
+
+                    {/* Confidence Rating */}
+                    {msg.confidence && (
                       <span
                         className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
                           msg.confidence === 'High'
@@ -154,8 +181,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                       >
                         {msg.confidence} {msg.top_score ? `(${Math.round(msg.top_score * 100)}%)` : ''}
                       </span>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
 
                 {/* Hard-Gate Block Banner if applies */}
@@ -179,6 +206,29 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 {/* Main Grounded Answer Text */}
                 <div className="text-xs text-slate-200 leading-relaxed whitespace-pre-line font-normal">
                   {msg.text}
+                </div>
+
+                {/* Phase 2 Interactive Shortcut Bars */}
+                <div className="flex flex-wrap gap-2 pt-1 border-t border-slate-800/60">
+                  {onNavigateToKnowledgeGraph && (
+                    <button
+                      onClick={onNavigateToKnowledgeGraph}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-emerald-300 text-xs font-semibold border border-emerald-500/30 transition-all cursor-pointer shadow-sm"
+                    >
+                      <Network className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Inspect Knowledge Graph</span>
+                    </button>
+                  )}
+
+                  {onNavigateToSynergy && (
+                    <button
+                      onClick={onNavigateToSynergy}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-blue-300 text-xs font-semibold border border-blue-500/30 transition-all cursor-pointer shadow-sm"
+                    >
+                      <FlaskConical className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Evaluate Sec 3(e) Synergism</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* ABS Compliance Alert Banner */}
@@ -208,11 +258,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/40">
                     <button
                       onClick={() => toggleCitation(msg.id)}
-                      className="w-full flex items-center justify-between p-3 text-xs font-semibold text-slate-300 hover:bg-slate-800/50 transition-all"
+                      className="w-full flex items-center justify-between p-3 text-xs font-semibold text-slate-300 hover:bg-slate-800/50 transition-all cursor-pointer"
                     >
                       <div className="flex items-center space-x-2">
                         <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Grounded Source Citations ({msg.citations.length})</span>
+                        <span>Grounded Statutory Citations ({msg.citations.length})</span>
                       </div>
                       {expandedCitations[msg.id] ? (
                         <ChevronUp className="w-4 h-4 text-slate-400" />
@@ -262,10 +312,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   <span>Informational guidance only • Not legal advice</span>
                   <button
                     onClick={() => onOpenEscalate(msg.text)}
-                    className="text-amber-400 hover:underline flex items-center space-x-1"
+                    className="text-amber-400 hover:underline flex items-center space-x-1 cursor-pointer"
                   >
                     <AlertCircle className="w-3 h-3" />
-                    <span>Escalate query to human expert</span>
+                    <span>Escalate to human expert</span>
                   </button>
                 </div>
 
@@ -277,7 +327,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         {loading && (
           <div className="flex items-center space-x-2 text-xs text-slate-400 p-4">
             <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
-            <span>Retrieving grounded legal chunks & analyzing via Groq...</span>
+            <span>Retrieving grounded legal chunks & analyzing with Groq...</span>
           </div>
         )}
 
@@ -292,14 +342,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             type="text"
             value={inputQuery}
             onChange={(e) => setInputQuery(e.target.value)}
-            placeholder={`Ask any IP or regulatory question (${jurisdiction.toUpperCase()} law active)...`}
+            placeholder={`Ask any Ayurvedic IP or regulatory question (${jurisdiction.toUpperCase()} law active)...`}
             className="w-full pl-4 pr-12 py-3.5 bg-slate-900 border border-slate-800 focus:border-emerald-500 rounded-2xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none shadow-xl"
           />
           <button
             id="chat-submit-btn"
             type="submit"
             disabled={!inputQuery.trim() || loading}
-            className="absolute right-2 p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-40 transition-all shadow-md shadow-emerald-950/50"
+            className="absolute right-2 p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-40 transition-all shadow-md shadow-emerald-950/50 cursor-pointer"
           >
             <Send className="w-4 h-4" />
           </button>

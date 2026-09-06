@@ -1,6 +1,9 @@
 """
 FastAPI Server Entrypoint for IP-SAKTI Sahayak.
-Provides REST APIs for Chat, Formulation Classifier, Escalation, and Evaluation Metrics.
+Provides REST APIs for:
+- Grounded RAG Chat & Formulation Classifier (Phase 1)
+- Ayurvedic Herb & Statutory Knowledge Graph & Synergy Analyzer (Phase 2)
+- Bhashini Indic Multilingual Translation & DPDP Act 2023 Cryptographic Audits (Phase 3)
 """
 
 import sys
@@ -18,18 +21,30 @@ load_dotenv(dotenv_path=dotenv_path)
 # Add app directory to python path
 sys.path.append(os.path.join(os.path.dirname(__file__), "app"))
 
-from database import init_db, log_query, log_escalation, get_latest_eval_runs, get_query_logs
+from database import (
+    init_db, log_query, log_escalation, get_latest_eval_runs,
+    get_query_logs, get_query_log_by_id
+)
 from classifier import process_classification_step, is_classification_dependent, get_initial_question
 from retriever import retrieve_chunks
 from llm import generate_grounded_answer
 from citation_validator import validate_citations
 from rule_checks import check_abs_compliance, check_tkdl_pointer, get_registry_pointers
 from eval_engine import run_evaluation_benchmark
+from knowledge_graph import (
+    get_herb_catalog, lookup_herb, compute_multi_herb_pathway, evaluate_section_3e_synergy
+)
+from bhashini import (
+    get_supported_languages, get_ui_translations, translate_indic_text
+)
+from dpdp import (
+    generate_tamper_evident_hash, generate_compliance_certificate
+)
 
 app = FastAPI(
     title="IP-SAKTI Sahayak API",
-    description="RAG-based Intellectual Property and Regulatory Guidance Assistant for Ayurvedic Innovators",
-    version="1.0.0"
+    description="RAG & Knowledge-Graph Grounded Intellectual Property and Regulatory Guidance for Ayurvedic Innovators",
+    version="2.0.0"
 )
 
 # Enable CORS for Vite frontend
@@ -59,6 +74,8 @@ class ChatRequest(BaseModel):
     session_id: str = "default_session"
     classification_answers: Optional[Dict[str, str]] = None
     override_classification: Optional[str] = None
+    target_language: Optional[str] = "en"
+    dpdp_consent: Optional[bool] = True
 
 class ClassifyRequest(BaseModel):
     session_id: str = "default_session"
@@ -75,17 +92,38 @@ class EscalateRequest(BaseModel):
 class EvalRunRequest(BaseModel):
     run_name: Optional[str] = "Manual Benchmark Run"
 
+class PathwayRequest(BaseModel):
+    herbs: List[str]
+    target_ip: Optional[str] = "patent"
+    jurisdiction: Optional[str] = "india"
+
+class SynergyCheckRequest(BaseModel):
+    herbs: List[str]
+    extraction_method: Optional[str] = "Hydroalcoholic Standardized Extract"
+    therapeutic_claim: Optional[str] = "Synergistic Anti-inflammatory and Neuroprotective"
+    has_experimental_data: Optional[bool] = False
+    combination_index: Optional[float] = None
+
+class TranslateRequest(BaseModel):
+    text: str
+    target_language: str
+
 STANDING_DISCLAIMER = "This is informational guidance, not legal advice."
 
 @app.get("/api/health")
 def health_check():
     return {
         "status": "online",
-        "service": "IP-SAKTI Sahayak API",
-        "database": "SQLite connected",
-        "jurisdictions_supported": ["india", "international"]
+        "service": "IP-SAKTI Sahayak API v2.0 (Phase 1, 2 & 3 Enabled)",
+        "database": "SQLite connected (DPDP SHA-256 enabled)",
+        "jurisdictions_supported": ["india", "international"],
+        "languages_supported": list(get_supported_languages().keys()),
+        "knowledge_graph_herbs": len(get_herb_catalog())
     }
 
+# ==========================================
+# Phase 1: Core Grounded RAG Chat
+# ==========================================
 @app.post("/api/chat")
 def chat_endpoint(req: ChatRequest):
     query = req.query.strip()
@@ -93,6 +131,7 @@ def chat_endpoint(req: ChatRequest):
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
     jurisdiction = req.jurisdiction.lower() if req.jurisdiction else "india"
+    target_lang = req.target_language.lower() if req.target_language else "en"
 
     # Step 1: Check formulation classification status
     classification_answers = req.classification_answers or {}
@@ -105,7 +144,12 @@ def chat_endpoint(req: ChatRequest):
         product_category_name = classifier_state["category_name"]
         category_key = classifier_state["category_key"]
     elif is_classification_dependent(query) and classifier_state["status"] == "in_progress" and not req.override_classification:
-        # Require formulation classification before answering!
+        # Translate question if needed
+        q_text = classifier_state["next_question"]["question"]
+        if target_lang != "en":
+            q_text = translate_indic_text(q_text, target_lang)
+            classifier_state["next_question"]["question"] = q_text
+
         return {
             "needs_classification": True,
             "classifier_question": classifier_state["next_question"],
@@ -144,7 +188,17 @@ def chat_endpoint(req: ChatRequest):
     tkdl_pointer = check_tkdl_pointer(category_key, query)
     registry_links = get_registry_pointers(retrieved_chunks)
 
-    # Step 6: Log query to SQLite audit database
+    # Step 6: Phase 3 DPDP SHA-256 Tamper-evident Hash
+    crypto_hash = generate_tamper_evident_hash(
+        session_id=req.session_id,
+        user_query=query,
+        jurisdiction=jurisdiction,
+        classification=product_category_name,
+        citations=citations,
+        is_blocked=not is_valid
+    )
+
+    # Step 7: Log query to SQLite audit database
     log_id = log_query(
         session_id=req.session_id,
         user_query=query,
@@ -156,11 +210,17 @@ def chat_endpoint(req: ChatRequest):
         confidence=confidence,
         is_blocked=not is_valid,
         abs_triggered=abs_alert["triggered"],
-        tkdl_triggered=tkdl_pointer["triggered"]
+        tkdl_triggered=tkdl_pointer["triggered"],
+        crypto_hash=crypto_hash,
+        dpdp_consent=req.dpdp_consent if req.dpdp_consent is not None else True
     )
 
-    # Append standing disclaimer to answer
-    full_answer = f"{final_answer.strip()}\n\n---\n*{STANDING_DISCLAIMER}*"
+    # Step 8: Phase 3 Bhashini Multilingual Localization (if non-English)
+    localized_answer = final_answer.strip()
+    if target_lang != "en":
+        localized_answer = translate_indic_text(localized_answer, target_lang)
+
+    full_answer = f"{localized_answer}\n\n---\n*{STANDING_DISCLAIMER}*"
 
     return {
         "log_id": log_id,
@@ -172,6 +232,8 @@ def chat_endpoint(req: ChatRequest):
         "product_category": product_category_name,
         "disclaimer": STANDING_DISCLAIMER,
         "is_blocked": not is_valid,
+        "crypto_hash": crypto_hash,
+        "target_language": target_lang,
         "abs_alert": abs_alert if abs_alert["triggered"] else None,
         "tkdl_pointer": tkdl_pointer if tkdl_pointer["triggered"] else None,
         "registry_links": registry_links,
@@ -187,6 +249,69 @@ def classify_endpoint(req: ClassifyRequest):
 def start_classifier():
     return get_initial_question()
 
+# ==========================================
+# Phase 2: Ayurvedic Knowledge Graph & Synergy
+# ==========================================
+@app.get("/api/knowledge-graph/herbs")
+def list_herbs():
+    return {
+        "total_herbs": len(get_herb_catalog()),
+        "herbs": get_herb_catalog()
+    }
+
+@app.post("/api/knowledge-graph/pathway")
+def get_pathway(req: PathwayRequest):
+    if not req.herbs:
+        raise HTTPException(status_code=400, detail="Please select at least one botanical herb.")
+    pathway = compute_multi_herb_pathway(
+        herb_ids=req.herbs,
+        target_ip=req.target_ip or "patent",
+        jurisdiction=req.jurisdiction or "india"
+    )
+    return pathway
+
+@app.post("/api/knowledge-graph/synergy-check")
+def synergy_check(req: SynergyCheckRequest):
+    if not req.herbs:
+        raise HTTPException(status_code=400, detail="Herbs list cannot be empty.")
+    result = evaluate_section_3e_synergy(
+        herb_names=req.herbs,
+        extraction_method=req.extraction_method or "Hydroalcoholic Standardized Extract",
+        therapeutic_claim=req.therapeutic_claim or "Anti-inflammatory and Neuroprotective",
+        has_experimental_data=bool(req.has_experimental_data),
+        combination_index=req.combination_index
+    )
+    return result
+
+# ==========================================
+# Phase 3: Bhashini & DPDP Cryptographic Audit
+# ==========================================
+@app.get("/api/bhashini/languages")
+def get_languages():
+    return {
+        "supported_languages": get_supported_languages()
+    }
+
+@app.post("/api/bhashini/translate")
+def translate_text(req: TranslateRequest):
+    translated = translate_indic_text(req.text, req.target_language)
+    return {
+        "original_text": req.text,
+        "translated_text": translated,
+        "target_language": req.target_language
+    }
+
+@app.get("/api/dpdp/certificate/{log_id}")
+def get_certificate(log_id: int):
+    log_record = get_query_log_by_id(log_id)
+    if not log_record:
+        raise HTTPException(status_code=404, detail="Audit log record not found.")
+    certificate = generate_compliance_certificate(log_record)
+    return certificate
+
+# ==========================================
+# Escalation & Benchmark Metrics
+# ==========================================
 @app.post("/api/escalate")
 def escalate_endpoint(req: EscalateRequest):
     esc_id = log_escalation(

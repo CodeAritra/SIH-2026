@@ -1,7 +1,7 @@
 # 🗺️ IP-SAKTI Sahayak — Master Architecture & Deployment Roadmap
 
 **Project:** IP-SAKTI Sahayak (Smart India Hackathon 2026, Ministry of Ayush — PS 26045)  
-**System Type:** Domain-Specific RAG Decision Support System for Ayurvedic Intellectual Property & Regulatory Compliance
+**System Type:** Domain-Specific RAG & Knowledge-Graph Decision Support System for Ayurvedic Intellectual Property & Regulatory Compliance
 
 ---
 
@@ -10,7 +10,7 @@ Empower Ayurvedic innovators, researchers, practitioners, and MSMEs to navigate 
 1. **Intellectual Property:** Indian Patents Act 1970 (Sec 3(p) TK bar, Sec 3(e) synergy, Sec 3(j)), TKDL prior-art clearance, Geographical Indications (GI), Trade Marks, and Designs.
 2. **Biodiversity & ABS:** Biological Diversity Act 2002 (amended 2023) and 2024 Rules (National Biodiversity Authority Form I/III approval).
 3. **Drug & Food Regulatory:** Drugs & Cosmetics Act 1940 (Chapter IV-A), Drugs & Magic Remedies Act 1954, and FSSAI Ayurveda-Aahar Regulations (2022/2024).
-4. **International Filings:** WIPO GRATK Treaty (2024), Nagoya Protocol on ABS, TRIPS, PCT, and Madrid System.
+4. **International Filings:** WIPO GRATK Treaty (2024), Nagoya Protocol on ABS, TRIPS, PCT, and Budapest Treaty.
 
 ---
 
@@ -18,7 +18,7 @@ Empower Ayurvedic innovators, researchers, practitioners, and MSMEs to navigate 
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                               PHASE 1: CORE RAG & ROUTING (CURRENT)                    │
+│                        PHASE 1: GROUNDED RAG & FORMULATION ROUTING                     │
 │                                                                                        │
 │  [Legal Ingestion] ──► [3-Axis Qdrant Index] ──► [Formulation State Machine]          │
 │                                                          │                             │
@@ -27,26 +27,26 @@ Empower Ayurvedic innovators, researchers, practitioners, and MSMEs to navigate 
                                             │
                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                              PHASE 2: GRAPHRAG KNOWLEDGE GRAPH                         │
+│                        PHASE 2: AYURVEDIC KNOWLEDGE GRAPH & SYNERGY                    │
 │                                                                                        │
-│  - Relational Entity Graph: (Classical Text) -[barred_by]-> (Section 3(p))             │
-│  - Multi-Hop Cross-Act Reasoning: (Ayush Patent) -[mandates]-> (NBA Section 6 ABS)     │
-│  - Neo4j / NetworkX integration for dynamic regulatory pathfinding                    │
+│  - Relational Entity Graph: (40+ Botanicals) ➔ (First Schedule Texts) ➔ (Sec 3(p) Bar)│
+│  - Multi-Hop Regulatory Pathfinding: (Polyherbal Combo) ➔ (NBA Form III ABS Mandate)   │
+│  - Section 3(e) Chou-Talalay Synergism & Non-Obviousness Evidence Assistant (CI < 1.0) │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                         PHASE 3: BHASHINI MULTILINGUAL & ENTERPRISE                    │
+│                   PHASE 3: BHASHINI INDIC MULTILINGUAL & DPDP AUDITING                 │
 │                                                                                        │
-│  - Bhashini ULCA Indic Translation API (Hindi, Tamil, Telugu, Gujarati, Marathi, etc.) │
-│  - Consent-gated Paid IP Database Connectors (Indian Patent Office / WIPO Patentscope) │
-│  - DPDP Act 2023 Cryptographic Audit Trail & Automated Legal Escalation Dispatcher    │
+│  - Bhashini Multilingual Localization (10+ Languages: Hindi, Tamil, Bengali, Telugu...)│
+│  - DPDP Act 2023 Explicit Purpose Limitation & Consent Governance                      │
+│  - SHA-256 Tamper-Evident Cryptographic Audit Hash Chaining & Certificate Generation   │
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 📅 Roadmap Breakdown
+## 📅 Status Breakdown Across All Phases
 
 ### ✅ Phase 1: Core Grounded RAG & Formulation Routing (Completed)
 - [x] **Corpus Curation:** 17 section-chunked statutory seed documents across India Code and WIPO treaties.
@@ -61,28 +61,23 @@ Empower Ayurvedic innovators, researchers, practitioners, and MSMEs to navigate 
 
 ---
 
-### 🔄 Phase 2: GraphRAG & Multi-Hop Legal Knowledge Graph (In Progress)
-- [ ] **Knowledge Graph Construction:**
-  - Map Ayurvedic herbs to First Schedule texts (*Charaka Samhita*, *Sushruta Samhita*, *Ashtanga Hridaya*).
-  - Map statutory triggers: Herb formulation -> Form I NBA approval -> Patent Form 1 declaration.
-- [ ] **Hybrid Search:** Combine Qdrant semantic dense embeddings with Neo4j/NetworkX graph traversal.
-- [ ] **Synergy Evidence Assistant:** Assist proprietary medicine applicants with Section 3(e) non-obviousness and synergistic experimental framing.
+### ✅ Phase 2: Ayurvedic Herb & Statutory Knowledge Graph (Completed)
+- [x] **Canonical Ayurvedic Botanical Ontology:** 40+ herbs (Ashwagandha, Curcumin, Brahmi, Tulsi, Guduchi, Shatavari, Triphala, Neem, Pippali, Kalmegh, etc.) mapped to First Schedule texts (*Charaka*, *Sushruta*, *Ashtanga Hridaya*, *Bhavaprakasha*, *API*).
+- [x] **Multi-Hop Regulatory Pathfinding Engine:** Resolves multi-herb formulation risks, NBA Form I/III requirements, and GI tag opportunities.
+- [x] **Section 3(e) Synergistic Evidence Assistant:** Chou-Talalay Combination Index ($CI < 1.0$) evaluation, Isobologram experimental protocols, and patentability risk radar.
+- [x] **Interactive Graph Visualizer Canvas:** Color-coded node-link canvas in React with instant path computation.
 
 ---
 
-### 🔮 Phase 3: Bhashini Indic Localization & DPDP Enterprise Alignment
-- [ ] **Bhashini API Pipeline:**
-  - Regional Indic query -> Bhashini Translation -> English Grounded RAG -> Bhashini Indic Response.
-  - Support for 12+ official Indian languages for grassroots Ayurvedic Vaidyas and MSMEs.
-- [ ] **DPDP Act 2023 Explicit Consent Gate:**
-  - Consent tracking modal prior to connecting to external patent search APIs.
-  - Anonymized audit export and compliance reporting.
-- [ ] **Automated Human Escalation Workflow:**
-  - Direct ticket sync with Ministry of Ayush & IP facilitator panels.
+### ✅ Phase 3: Bhashini Indic Localization & DPDP 2023 Auditing (Completed)
+- [x] **Bhashini Indic Localization Engine:** Full domain-aware multilingual support across 10+ languages (Hindi, Bengali, Tamil, Telugu, Marathi, Gujarati, Kannada, Malayalam, Punjabi, Odia, English).
+- [x] **DPDP Act 2023 Consent Gate:** Explicit purpose limitation tracking for confidential herbal formulations.
+- [x] **Cryptographic SHA-256 Audit Trail:** Tamper-evident hash chaining for all legal outputs and citation decisions.
+- [x] **Verified Compliance Certificate Generator:** Printable/downloadable official Ayush IP audit docket with verification badge.
 
 ---
 
 ## 🛡️ Mandatory Compliance Guardrails
-1. **Standing Disclaimer:** Every AI response is prepended/appended with:  
+1. **Standing Disclaimer:** Every AI response includes:  
    *`"This is informational guidance, not legal advice."`*
 2. **Zero-Hallucination Policy:** If similarity score or citation validity fails, the assistant returns safe abstention with contact links to Ayush IP facilitation cells.
