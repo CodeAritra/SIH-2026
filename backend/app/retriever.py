@@ -115,8 +115,9 @@ def retrieve_chunks(query: str, jurisdiction: str = "india", top_k: int = 5) -> 
 
             if scored_chunks:
                 max_score = scored_chunks[0]["score"]
-                confidence = "High" if max_score >= 0.80 else ("Medium" if max_score >= 0.60 else "Low")
+                confidence = "High" if max_score >= 0.65 else ("Medium" if max_score >= 0.25 else "Low")
                 return scored_chunks, confidence, max_score
+
         except Exception as e:
             logger.error(f"Qdrant Cloud vector query error: {str(e)}")
 
@@ -152,6 +153,7 @@ def retrieve_chunks(query: str, jurisdiction: str = "india", top_k: int = 5) -> 
     top_chunks = scored_chunks[:top_k]
 
     max_score = top_chunks[0]["score"] if top_chunks else 0.0
-    confidence = "High" if max_score >= 0.80 else ("Medium" if max_score >= 0.60 else "Low")
+    confidence = "High" if max_score >= 0.65 else ("Medium" if max_score >= 0.25 else "Low")
 
     return top_chunks, confidence, max_score
+

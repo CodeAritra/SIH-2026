@@ -8,7 +8,7 @@ import { ClassifierModal } from './ClassifierModal';
 
 interface ChatInterfaceProps {
   messages: Message[];
-  onSendMessage: (query: str) => void;
+  onSendMessage: (query: string) => void;
   onClassifierAnswer: (optionKey: string) => void;
   loading: boolean;
   jurisdiction: Jurisdiction;
