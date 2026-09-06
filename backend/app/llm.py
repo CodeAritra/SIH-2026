@@ -53,10 +53,22 @@ def generate_grounded_answer(
     if groq_key:
         try:
             from langchain_groq import ChatGroq
+            candidate_models = [
+                os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+                "llama-3.1-8b-instant",
+                "llama3-70b-8192",
+                "llama3-8b-8192",
+                "mixtral-8x7b-32768"
+            ]
+        except ImportError as ie:
+            logger.warning(f"langchain_groq not available: {ie}. Using offline generator.")
+            candidate_models = []
+        # Deduplicate while preserving order
+        candidate_models = list(dict.fromkeys(candidate_models))
 
-            prompt = ChatPromptTemplate.from_messages([
-                SystemMessagePromptTemplate.from_template(SYSTEM_GROUNDING_PROMPT),
-                HumanMessagePromptTemplate.from_template("""
+        prompt = ChatPromptTemplate.from_messages([
+            SystemMessagePromptTemplate.from_template(SYSTEM_GROUNDING_PROMPT),
+            HumanMessagePromptTemplate.from_template("""
 USER JURISDICTION: {jurisdiction}
 PRODUCT CATEGORY: {product_category}
 
@@ -69,28 +81,31 @@ RETRIEVED LEGAL CONTEXT CHUNKS:
 INSTRUCTIONS:
 Provide a clear, direct, grounded answer to the user query. Cite the specific source section in brackets after every legal point.
 """)
-            ])
+        ])
 
-            llm = ChatGroq(
-                groq_api_key=groq_key,
-                model_name="llama-3.3-70b-versatile",
-                temperature=0.1,
-                max_tokens=800
-            )
+        for model_name in candidate_models:
+            try:
+                llm = ChatGroq(
+                    groq_api_key=groq_key,
+                    model_name=model_name,
+                    temperature=0.1,
+                    max_tokens=800
+                )
 
-            # Build LangChain Expression Language (LCEL) chain
-            chain = prompt | llm | StrOutputParser()
+                # Build LangChain Expression Language (LCEL) chain
+                chain = prompt | llm | StrOutputParser()
 
-            result = chain.invoke({
-                "jurisdiction": jurisdiction.upper(),
-                "product_category": product_category,
-                "query": query,
-                "context_text": context_text
-            })
+                result = chain.invoke({
+                    "jurisdiction": jurisdiction.upper(),
+                    "product_category": product_category,
+                    "query": query,
+                    "context_text": context_text
+                })
 
-            return result.strip()
-        except Exception as e:
-            logger.warning(f"LangChain ChatGroq chain failed ({str(e)}). Using grounded offline generator.")
+                return result.strip()
+            except Exception as e:
+                logger.warning(f"ChatGroq with model '{model_name}' failed ({str(e)}).")
+                continue
 
     # Offline grounded fallback generator
     if not retrieved_chunks:

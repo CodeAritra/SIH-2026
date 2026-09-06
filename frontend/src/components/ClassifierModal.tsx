@@ -4,7 +4,7 @@ import { ClassifierQuestion } from '../types';
 
 interface ClassifierModalProps {
   question: ClassifierQuestion;
-  onSelectOption: (optionKey: string) => void;
+  onSelectOption: (questionId: string, optionKey: string) => void;
   onSkip?: () => void;
 }
 
@@ -35,7 +35,7 @@ export const ClassifierModal: React.FC<ClassifierModalProps> = ({
         {question.options.map((opt) => (
           <button
             key={opt.key}
-            onClick={() => onSelectOption(opt.key)}
+            onClick={() => onSelectOption(question.id, opt.key)}
             className="flex items-center justify-between p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-emerald-500/50 text-left transition-all group"
           >
             <div>

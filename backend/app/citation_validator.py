@@ -21,8 +21,8 @@ def validate_citations(
     Hard-gate validator checking LLM response grounding.
     Returns (is_valid, extracted_citations, final_answer, failure_reason).
     """
-    if min_confidence == "Low" or not retrieved_chunks:
-        return False, [], SAFE_ABSTENTION_MESSAGE, "Low retrieval confidence or no relevant chunks retrieved."
+    if not retrieved_chunks:
+        return False, [], SAFE_ABSTENTION_MESSAGE, "No relevant legal chunks retrieved in corpus."
 
     # Extract source titles and sections available in retrieved chunks
     valid_sources = {

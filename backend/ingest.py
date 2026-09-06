@@ -130,6 +130,18 @@ def ingest_corpus() -> Dict[str, Any]:
             api_key=qdrant_key,
             collection_name="ayush_ip_corpus_langchain"
         )
+
+        # Create payload index for metadata filtering in Qdrant Cloud
+        for field in ["metadata.jurisdiction", "metadata.ip_type", "metadata.formulation_category"]:
+            try:
+                client.create_payload_index(
+                    collection_name="ayush_ip_corpus_langchain",
+                    field_name=field,
+                    field_schema="keyword"
+                )
+            except Exception as pe:
+                logger.debug(f"Payload index for {field}: {pe}")
+
         qdrant_status = f"Successfully uploaded {len(all_docs)} LangChain Document vectors directly to Qdrant Cloud collection 'ayush_ip_corpus_langchain'."
         logger.info(qdrant_status)
         return {

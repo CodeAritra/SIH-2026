@@ -23,6 +23,12 @@ SEED_DOCUMENTS = [
 Section 3(p): Inventions Not Patentable - Traditional Knowledge
 An invention which in effect, is traditional knowledge or which is an aggregation or duplication of known properties of traditionally known component or components is not patentable. For Ayurvedic formulations, combining known medicinal plants (e.g. Ashwagandha and Turmeric) without synergistic non-obvious technical effect is barred under Section 3(p).
 
+Section 3(e): Mere Admixture Not Patentable vs Synergistic Combinations
+A substance obtained by a mere admixture resulting only in the aggregation of the properties of the components thereof or a process for producing such substance is not patentable. To overcome Section 3(e) for polyherbal combinations (e.g. Ashwagandha, Turmeric, Pippali), the applicant must furnish comparative experimental data demonstrating a statistically significant synergistic effect (Combination Index CI < 1.0) rather than a simple additive effect.
+
+Section 3(d): Enhanced Efficacy and Novel Extraction Processes
+The mere discovery of a new form of a known substance which does not result in the enhancement of the known efficacy of that substance, or the mere discovery of any new property or new use for a known substance or of the mere use of a known process, machine or apparatus unless such known process results in a new product or employs at least one new reactant is not an invention. However, a novel extraction method (e.g. supercritical CO2 extraction, targeted fraction isolation) that results in enhanced therapeutic efficacy, superior bioavailability, or an unexpected bioactive profile for Ayurvedic botanicals may be patentable as a novel process invention.
+
 Section 3(j): Non-Patentability of Plants and Animals
 Plants and animals in whole or any part thereof including seeds, varieties and species and essentially biological processes for production or propagation of plants and animals are not inventions. However, isolated microorganisms or purified active phytochemical compounds with novel technical processes may be patentable if novel and inventive.
 

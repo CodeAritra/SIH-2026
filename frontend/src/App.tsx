@@ -25,24 +25,22 @@ export const App: React.FC = () => {
   const [isDPDPOpen, setIsDPDPOpen] = useState(false);
   const [selectedCertLogId, setSelectedCertLogId] = useState<number | null>(null);
 
-  const handleSendMessage = async (queryText: string) => {
-    const userMsg: Message = {
-      id: `user_${Date.now()}`,
-      sender: 'user',
-      text: queryText,
-      timestamp: new Date().toLocaleTimeString()
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
+  const executeChatQuery = async (
+    queryText: string,
+    overrideCat?: string | null,
+    overrideAnswers?: Record<string, string>
+  ) => {
     setLoading(true);
+    const activeCat = overrideCat !== undefined ? overrideCat : productCategory;
+    const activeAnswers = overrideAnswers !== undefined ? overrideAnswers : classificationAnswers;
 
     try {
       const response = await axios.post('/api/chat', {
         query: queryText,
         jurisdiction,
         session_id: sessionId,
-        classification_answers: classificationAnswers,
-        override_classification: productCategory,
+        classification_answers: activeAnswers,
+        override_classification: activeCat,
         target_language: selectedLanguage,
         dpdp_consent: true
       });
@@ -99,8 +97,20 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleClassifierAnswer = async (optionKey: string) => {
-    const updatedAnswers = { ...classificationAnswers, q1_base: optionKey };
+  const handleSendMessage = async (queryText: string) => {
+    const userMsg: Message = {
+      id: `user_${Date.now()}`,
+      sender: 'user',
+      text: queryText,
+      timestamp: new Date().toLocaleTimeString()
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    await executeChatQuery(queryText);
+  };
+
+  const handleClassifierAnswer = async (questionId: string, optionKey: string) => {
+    const updatedAnswers = { ...classificationAnswers, [questionId]: optionKey };
     setClassificationAnswers(updatedAnswers);
 
     try {
@@ -110,11 +120,12 @@ export const App: React.FC = () => {
       });
 
       if (res.data.status === 'completed') {
-        setProductCategory(res.data.category_name);
-        // Re-run last user query automatically if exists
+        const completedCat = res.data.category_name;
+        setProductCategory(completedCat);
+        // Re-run last user query automatically with confirmed classification
         const lastUserMsg = [...messages].reverse().find((m) => m.sender === 'user');
         if (lastUserMsg) {
-          handleSendMessage(lastUserMsg.text);
+          await executeChatQuery(lastUserMsg.text, completedCat, updatedAnswers);
         }
       } else if (res.data.status === 'in_progress') {
         const botMsg: Message = {
