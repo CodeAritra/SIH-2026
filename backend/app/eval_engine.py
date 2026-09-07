@@ -148,7 +148,13 @@ def run_evaluation_benchmark(run_name: str = "Benchmark Run") -> Dict[str, Any]:
 
         # Test LLM answer & citation validator hard gate
         draft_answer = generate_grounded_answer(query, retrieved_chunks, jurisdiction)
-        is_valid, citations, final_answer, fail_reason = validate_citations(draft_answer, retrieved_chunks, confidence)
+        is_valid, citations, final_answer, fail_reason, response_type = validate_citations(
+            llm_answer=draft_answer,
+            retrieved_chunks=retrieved_chunks,
+            min_confidence=confidence,
+            query=query,
+            top_score=top_score
+        )
 
         is_abstained = ("don't have a grounded source" in final_answer.lower() or not is_valid)
 

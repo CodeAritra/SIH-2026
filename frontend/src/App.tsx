@@ -1,14 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { Header } from './components/Header';
 import { ChatInterface } from './components/ChatInterface';
 import { EvalDashboard } from './components/EvalDashboard';
 import { EscalateModal } from './components/EscalateModal';
-import { Jurisdiction, Message } from './types';
+import { KnowledgeGraphVisualizer } from './components/KnowledgeGraphVisualizer';
+import { SynergyAnalyzer } from './components/SynergyAnalyzer';
+import { DPDPConsentModal } from './components/DPDPConsentModal';
+import { Jurisdiction, Message, ActiveTab } from './types';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'chat' | 'metrics'>('chat');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('chat');
   const [jurisdiction, setJurisdiction] = useState<Jurisdiction>('india');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('en');
   const [sessionId] = useState(() => `session_${Math.random().toString(36).substring(2, 9)}`);
   const [productCategory, setProductCategory] = useState<string | null>(null);
   const [classificationAnswers, setClassificationAnswers] = useState<Record<string, string>>({});
@@ -16,25 +20,29 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [isEscalateOpen, setIsEscalateOpen] = useState(false);
   const [escalateQuery, setEscalateQuery] = useState('');
+  
+  // DPDP Certificate Modal State
+  const [isDPDPOpen, setIsDPDPOpen] = useState(false);
+  const [selectedCertLogId, setSelectedCertLogId] = useState<number | null>(null);
 
-  const handleSendMessage = async (queryText: string) => {
-    const userMsg: Message = {
-      id: `user_${Date.now()}`,
-      sender: 'user',
-      text: queryText,
-      timestamp: new Date().toLocaleTimeString()
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
+  const executeChatQuery = async (
+    queryText: string,
+    overrideCat?: string | null,
+    overrideAnswers?: Record<string, string>
+  ) => {
     setLoading(true);
+    const activeCat = overrideCat !== undefined ? overrideCat : productCategory;
+    const activeAnswers = overrideAnswers !== undefined ? overrideAnswers : classificationAnswers;
 
     try {
       const response = await axios.post('/api/chat', {
         query: queryText,
         jurisdiction,
         session_id: sessionId,
-        classification_answers: classificationAnswers,
-        override_classification: productCategory
+        classification_answers: activeAnswers,
+        override_classification: activeCat,
+        target_language: selectedLanguage,
+        dpdp_consent: true
       });
 
       const data = response.data;
@@ -69,7 +77,9 @@ export const App: React.FC = () => {
           tkdl_pointer: data.tkdl_pointer,
           registry_links: data.registry_links,
           is_blocked: data.is_blocked,
-          response_type: data.response_type
+          crypto_hash: data.crypto_hash,
+          log_id: data.log_id,
+          target_language: data.target_language
         };
         setMessages((prev) => [...prev, botMsg]);
       }
@@ -87,8 +97,20 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleClassifierAnswer = async (optionKey: string) => {
-    const updatedAnswers = { ...classificationAnswers, q1_base: optionKey };
+  const handleSendMessage = async (queryText: string) => {
+    const userMsg: Message = {
+      id: `user_${Date.now()}`,
+      sender: 'user',
+      text: queryText,
+      timestamp: new Date().toLocaleTimeString()
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    await executeChatQuery(queryText);
+  };
+
+  const handleClassifierAnswer = async (questionId: string, optionKey: string) => {
+    const updatedAnswers = { ...classificationAnswers, [questionId]: optionKey };
     setClassificationAnswers(updatedAnswers);
 
     try {
@@ -98,11 +120,12 @@ export const App: React.FC = () => {
       });
 
       if (res.data.status === 'completed') {
-        setProductCategory(res.data.category_name);
-        // Re-run last user query automatically if exists
+        const completedCat = res.data.category_name;
+        setProductCategory(completedCat);
+        // Re-run last user query automatically with confirmed classification
         const lastUserMsg = [...messages].reverse().find((m) => m.sender === 'user');
         if (lastUserMsg) {
-          handleSendMessage(lastUserMsg.text);
+          await executeChatQuery(lastUserMsg.text, completedCat, updatedAnswers);
         }
       } else if (res.data.status === 'in_progress') {
         const botMsg: Message = {
@@ -132,6 +155,11 @@ export const App: React.FC = () => {
     setIsEscalateOpen(true);
   };
 
+  const handleOpenDPDPCertificate = (logId: number) => {
+    setSelectedCertLogId(logId);
+    setIsDPDPOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       <Header
@@ -141,10 +169,12 @@ export const App: React.FC = () => {
         setJurisdiction={setJurisdiction}
         productCategory={productCategory}
         onOpenEscalate={() => handleOpenEscalate()}
+        selectedLanguage={selectedLanguage}
+        setSelectedLanguage={setSelectedLanguage}
       />
 
       <main className="flex-1 flex flex-col">
-        {activeTab === 'chat' ? (
+        {activeTab === 'chat' && (
           <ChatInterface
             messages={messages}
             onSendMessage={handleSendMessage}
@@ -154,18 +184,34 @@ export const App: React.FC = () => {
             productCategory={productCategory}
             onOpenEscalate={handleOpenEscalate}
             onResetSession={handleResetSession}
+            onOpenDPDPCertificate={handleOpenDPDPCertificate}
+            onNavigateToKnowledgeGraph={() => setActiveTab('knowledge_graph')}
+            onNavigateToSynergy={() => setActiveTab('synergy')}
+            selectedLanguage={selectedLanguage}
           />
-        ) : (
-          <EvalDashboard />
         )}
+
+        {activeTab === 'knowledge_graph' && <KnowledgeGraphVisualizer />}
+
+        {activeTab === 'synergy' && <SynergyAnalyzer />}
+
+        {activeTab === 'metrics' && <EvalDashboard />}
       </main>
 
+      {/* Escalation to Human Expert Modal */}
       <EscalateModal
         isOpen={isEscalateOpen}
         onClose={() => setIsEscalateOpen(false)}
         initialQuery={escalateQuery}
         jurisdiction={jurisdiction}
         productCategory={productCategory}
+      />
+
+      {/* DPDP Cryptographic Compliance Certificate Modal */}
+      <DPDPConsentModal
+        isOpen={isDPDPOpen}
+        onClose={() => setIsDPDPOpen(false)}
+        logId={selectedCertLogId}
       />
     </div>
   );

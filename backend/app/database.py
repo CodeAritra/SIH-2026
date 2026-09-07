@@ -1,6 +1,7 @@
 """
 SQLite Database Layer for IP-SAKTI Sahayak.
-Handles audit logging of user queries, citations, confidence scores, human escalations, and evaluation metrics.
+Handles audit logging of user queries, citations, confidence scores, human escalations,
+DPDP cryptographic hashes, and evaluation metrics.
 """
 
 import os
@@ -32,9 +33,19 @@ def init_db():
         confidence TEXT NOT NULL,
         is_blocked BOOLEAN NOT NULL,
         abs_triggered BOOLEAN NOT NULL,
-        tkdl_triggered BOOLEAN NOT NULL
+        tkdl_triggered BOOLEAN NOT NULL,
+        crypto_hash TEXT,
+        dpdp_consent BOOLEAN DEFAULT 1
     )
     """)
+
+    # Check if columns exist in older database schema and add them if missing
+    cursor.execute("PRAGMA table_info(query_logs)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if "crypto_hash" not in columns:
+        cursor.execute("ALTER TABLE query_logs ADD COLUMN crypto_hash TEXT")
+    if "dpdp_consent" not in columns:
+        cursor.execute("ALTER TABLE query_logs ADD COLUMN dpdp_consent BOOLEAN DEFAULT 1")
 
     # Escalations table
     cursor.execute("""
@@ -92,7 +103,9 @@ def log_query(
     confidence: str,
     is_blocked: bool,
     abs_triggered: bool,
-    tkdl_triggered: bool
+    tkdl_triggered: bool,
+    crypto_hash: Optional[str] = None,
+    dpdp_consent: bool = True
 ) -> int:
     init_db()
     conn = sqlite3.connect(DB_PATH)
@@ -104,18 +117,55 @@ def log_query(
     INSERT INTO query_logs (
         timestamp, session_id, user_query, jurisdiction, classification,
         retrieved_chunks, llm_raw_answer, citations, confidence,
-        is_blocked, abs_triggered, tkdl_triggered
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        is_blocked, abs_triggered, tkdl_triggered, crypto_hash, dpdp_consent
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         timestamp, session_id, user_query, jurisdiction, classification,
         json.dumps(clean_chunks), llm_raw_answer, json.dumps(citations),
-        confidence, is_blocked, abs_triggered, tkdl_triggered
+        confidence, is_blocked, abs_triggered, tkdl_triggered, crypto_hash, dpdp_consent
     ))
     
     log_id = cursor.lastrowid
     conn.commit()
     conn.close()
     return log_id
+
+
+def get_query_log_by_id(log_id: int) -> Optional[Dict[str, Any]]:
+    init_db()
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    SELECT id, timestamp, session_id, user_query, jurisdiction, classification,
+           retrieved_chunks, llm_raw_answer, citations, confidence, is_blocked,
+           abs_triggered, tkdl_triggered, crypto_hash, dpdp_consent
+    FROM query_logs WHERE id = ?
+    """, (log_id,))
+
+    r = cursor.fetchone()
+    conn.close()
+
+    if not r:
+        return None
+
+    return {
+        "id": r[0],
+        "timestamp": r[1],
+        "session_id": r[2],
+        "user_query": r[3],
+        "jurisdiction": r[4],
+        "classification": r[5],
+        "retrieved_chunks": json.loads(r[6]),
+        "llm_raw_answer": r[7],
+        "citations": json.loads(r[8]),
+        "confidence": r[9],
+        "is_blocked": bool(r[10]),
+        "abs_triggered": bool(r[11]),
+        "tkdl_triggered": bool(r[12]),
+        "crypto_hash": r[13],
+        "dpdp_consent": bool(r[14])
+    }
 
 
 def log_escalation(
@@ -209,7 +259,7 @@ def get_query_logs(limit: int = 20) -> List[Dict[str, Any]]:
     cursor.execute("""
     SELECT id, timestamp, session_id, user_query, jurisdiction, classification,
            retrieved_chunks, llm_raw_answer, citations, confidence, is_blocked,
-           abs_triggered, tkdl_triggered
+           abs_triggered, tkdl_triggered, crypto_hash, dpdp_consent
     FROM query_logs ORDER BY id DESC LIMIT ?
     """, (limit,))
     
@@ -231,6 +281,8 @@ def get_query_logs(limit: int = 20) -> List[Dict[str, Any]]:
             "confidence": r[9],
             "is_blocked": bool(r[10]),
             "abs_triggered": bool(r[11]),
-            "tkdl_triggered": bool(r[12])
+            "tkdl_triggered": bool(r[12]),
+            "crypto_hash": r[13],
+            "dpdp_consent": bool(r[14])
         })
     return logs
