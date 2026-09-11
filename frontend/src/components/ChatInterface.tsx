@@ -9,13 +9,18 @@ import { ClassifierModal } from './ClassifierModal';
 interface ChatInterfaceProps {
   messages: Message[];
   onSendMessage: (query: string) => void;
-  onClassifierAnswer: (optionKey: string) => void;
+  onClassifierAnswer: (questionId: string, optionKey: string) => void;
   loading: boolean;
   jurisdiction: Jurisdiction;
   productCategory: string | null;
   onOpenEscalate: (query?: string) => void;
   onResetSession: () => void;
+  onOpenDPDPCertificate?: (logId: number) => void;
+  onNavigateToKnowledgeGraph?: () => void;
+  onNavigateToSynergy?: () => void;
+  selectedLanguage?: string;
 }
+
 
 const QUICK_PROMPTS = [
   { label: 'Traditional Knowledge Patentability', text: 'Can I patent an Ayurvedic herbal formulation based on classical texts?' },
@@ -251,8 +256,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   {msg.needs_classification && msg.classifier_question && (
                     <ClassifierModal
                       question={msg.classifier_question}
-                      onSelectOption={onClassifierAnswer}
+                      onSelectOption={(optionKey) => onClassifierAnswer(msg.classifier_question!.id, optionKey)}
                     />
+
                   )}
 
                   {/* Main Grounded Answer Text */}
