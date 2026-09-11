@@ -14,9 +14,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-# Load .env from project root
-dotenv_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env"))
-load_dotenv(dotenv_path=dotenv_path)
+# Load backend .env configuration
+backend_dotenv = os.path.abspath(os.path.join(os.path.dirname(__file__), ".env"))
+load_dotenv(dotenv_path=backend_dotenv)
+
+
 
 # Add app directory to python path
 sys.path.append(os.path.join(os.path.dirname(__file__), "app"))

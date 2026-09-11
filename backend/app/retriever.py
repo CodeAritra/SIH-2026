@@ -12,9 +12,11 @@ from typing import List, Dict, Any, Tuple
 from langchain_core.documents import Document
 from dotenv import load_dotenv
 
-# Automatically locate and load root .env
-dotenv_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
-load_dotenv(dotenv_path=dotenv_path)
+# Automatically locate and load backend/.env configuration
+backend_dotenv = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env"))
+load_dotenv(dotenv_path=backend_dotenv)
+
+
 
 from ingest import compute_simple_embedding, chunk_document_to_langchain, CORPUS_DIR
 

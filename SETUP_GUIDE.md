@@ -7,19 +7,21 @@ Welcome to **IP-SAKTI Sahayak**! This guide walks any developer or teammate thro
 ## 📋 Prerequisites
 
 Ensure you have the following installed on your local machine:
+
 - **Python 3.10+** (verify with `python --version` or `python3 --version`)
 - **Node.js 18+ & npm** (verify with `node -v` and `npm -v`)
 - **Git** (verify with `git --version`)
 - API Keys:
   - **Groq API Key** (from [Groq Console](https://console.groq.com/)) for Llama-3.3-70B reasoning.
   - **Qdrant Cloud Cluster** (from [Qdrant Cloud](https://cloud.qdrant.io/)) URL & API Key.
-  - *(Optional)* Gemini API Key.
+  - _(Optional)_ Gemini API Key.
 
 ---
 
 ## 🛠️ Step-by-Step Local Setup
 
 ### 1. Clone the Repository
+
 ```bash
 git clone https://github.com/CodeAritra/SIH-2026.git
 cd SIH-2026
@@ -27,57 +29,81 @@ cd SIH-2026
 
 ---
 
-### 2. Configure Environment Variables (`.env`)
-Create a `.env` file at the **root of the project** by copying the `.env.example`:
+### 2. Configure Environment Variables
+
+#### A. Backend Environment (`backend/.env`)
+Create `backend/.env` by copying `backend/.env.example`:
 
 **Windows (PowerShell):**
 ```powershell
-Copy-Item .env.example .env
+Copy-Item backend\.env.example backend\.env
 ```
 
 **macOS / Linux (Bash):**
 ```bash
-cp .env.example .env
+cp backend/.env.example backend/.env
 ```
 
-Open `.env` and fill in your credentials:
+Open `backend/.env` and fill in your keys:
 ```env
 # Groq API for Fast Grounded LLM Inference
 GROQ_API_KEY="gsk_your_groq_api_key_here"
 
 # Qdrant Cloud Managed Vector Database
-QDRANT_URL="https://your-cluster-url.qdrant.tech:6333"
+QDRANT_URL="https://your-cluster-url.qdrant.tech"
 QDRANT_API_KEY="your_qdrant_api_key_here"
 
 # Optional / Fallback
 GEMINI_API_KEY="AIzaSy..."
 ```
 
+#### B. Frontend Environment (`frontend/.env`)
+Create `frontend/.env` by copying `frontend/.env.example`:
+
+**Windows (PowerShell):**
+```powershell
+Copy-Item frontend\.env.example frontend\.env
+```
+
+**macOS / Linux (Bash):**
+```bash
+cp frontend/.env.example frontend/.env
+```
+
+For local development, leave `VITE_API_BASE_URL=""` so Vite uses the local proxy (`http://localhost:8000`). For production on Vercel, set `VITE_API_BASE_URL="https://ip-sakti-backend.onrender.com"`.
+
+
 ---
 
 ### 3. Backend Setup (Python + FastAPI + LangChain)
 
 #### A. Create and Activate Virtual Environment
+
 **Windows:**
+
 ```powershell
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 ```
 
 **macOS / Linux:**
+
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 ```
 
 #### B. Install Python Dependencies
+
 ```bash
 pip install --upgrade pip
 pip install -r backend/requirements.txt
 ```
 
 #### C. Ingest the Legal Corpus into Qdrant Cloud
+
 Generate the seed legal documents and chunk them into Qdrant Cloud with strict 3-axis metadata (`jurisdiction`, `ip_type`, `formulation`):
+
 ```bash
 # 1. Generate statutory corpus files
 python backend/seed_corpus.py
@@ -87,16 +113,20 @@ python backend/ingest.py
 ```
 
 #### D. Run the Backend Verification Suite
+
 Verify all components (retriever, formulation classifier, citation gate, ABS/TKDL rule checkers):
+
 ```bash
 python backend/test_backend.py
 ```
 
 #### E. Start the Backend API Server
+
 ```bash
 python backend/main.py
 ```
-*The FastAPI backend will start on **`http://localhost:8000`** (Swagger docs available at `http://localhost:8000/docs`).*
+
+_The FastAPI backend will start on **`http://localhost:8000`** (Swagger docs available at `http://localhost:8000/docs`)._
 
 ---
 
@@ -109,18 +139,19 @@ cd frontend
 npm install
 npm run dev
 ```
-*The React UI will start on **`http://localhost:3000`** (or `http://localhost:5173` depending on port availability) and automatically proxies API requests to `http://localhost:8000`.*
+
+_The React UI will start on **`http://localhost:3000`** (or `http://localhost:5173` depending on port availability) and automatically proxies API requests to `http://localhost:8000`._
 
 ---
 
 ## 🧪 Testing and Verification Checklist
 
-| Test Item | Command | Expected Outcome |
-| :--- | :--- | :--- |
-| **Backend Integration** | `python backend/test_backend.py` | `SUCCESS: All LangChain backend tests passed clean!` |
-| **Frontend Production Build** | `cd frontend && npm run build` | `dist/` created with 0 TypeScript/Lint errors |
-| **Health API** | `GET http://localhost:8000/api/health` | `{"status": "online", "service": "IP-SAKTI Sahayak API"}` |
-| **Metrics Benchmark** | `GET http://localhost:8000/api/metrics` | Returns evaluation benchmark runs and query logs |
+| Test Item                     | Command                                 | Expected Outcome                                          |
+| :---------------------------- | :-------------------------------------- | :-------------------------------------------------------- |
+| **Backend Integration**       | `python backend/test_backend.py`        | `SUCCESS: All LangChain backend tests passed clean!`      |
+| **Frontend Production Build** | `cd frontend && npm run build`          | `dist/` created with 0 TypeScript/Lint errors             |
+| **Health API**                | `GET http://localhost:8000/api/health`  | `{"status": "online", "service": "IP-SAKTI Sahayak API"}` |
+| **Metrics Benchmark**         | `GET http://localhost:8000/api/metrics` | Returns evaluation benchmark runs and query logs          |
 
 ---
 

@@ -41,7 +41,7 @@
 
 ## Key Design Decisions & Vector Architecture
 
-1. **Automatic Root `.env` Loading:** `main.py`, `ingest.py`, and `retriever.py` all automatically locate and load `.env` from the project root (`load_dotenv()`) whether executed standalone or via server.
+1. **Decoupled Environment Configurations:** Backend modules (`main.py`, `ingest.py`, `retriever.py`) load `backend/.env` while frontend uses `frontend/.env` (`VITE_API_BASE_URL`), creating strict isolation between client-side assets and backend secret keys (`GROQ_API_KEY`, `QDRANT_API_KEY`).
 2. **Dedicated Qdrant Cloud Vector Database:** Vector ingestion (`ingest.py`) and retrieval (`retriever.py`) connect directly to **Qdrant Cloud** managed vector store (`ayush_ip_corpus_langchain`). Local JSON vector store fallback has been completely removed as requested.
 3. **LangChain LCEL Pipeline:** The reasoning pipeline utilizes LangChain Expression Language (`ChatPromptTemplate | ChatGroq | StrOutputParser`) and `langchain_core.documents.Document` wrappers.
 4. **Deterministic Classifier State Machine:** Product categorization is handled via a rule-based decision tree state machine in Python (`app/classifier.py`), not an LLM prompt.
@@ -56,20 +56,21 @@ prototype/
 ├── AGENTS.md                     # Codebase architectural record & maintenance state
 ├── PROMPT.md                     # Hackathon prompt & requirement specification
 ├── README.md                     # Developer setup, API keys, and seed corpus audit table
-├── .env                          # Root environment configuration (ignored by git)
-├── .env.example                  # Environment variable configuration template
-├── .gitignore                    # Git exclusion patterns
+├── render.yaml                   # Render Blueprint config for FastAPI backend
+├── .gitignore                    # Git exclusion patterns (ignores backend/.env and frontend/.env)
 ├── corpus/                       # Section-chunked legal seed documents (17 files)
 │   └── manifest.json             # 3-axis document metadata catalog
 ├── backend/
-│   ├── main.py                   # FastAPI server entrypoint (loads root .env)
-│   ├── requirements.txt          # Python packages (FastAPI, LangChain, Groq, Qdrant)
+│   ├── .env                      # Backend environment secrets (ignored by git)
+│   ├── .env.example              # Backend environment template
+│   ├── main.py                   # FastAPI server entrypoint (loads backend/.env)
+│   ├── requirements.txt          # Python packages (FastAPI, LangChain, Groq, Qdrant, Gunicorn)
 │   ├── seed_corpus.py            # 3-axis seed corpus document generator
-│   ├── ingest.py                 # LangChain Document chunker & Qdrant Cloud indexer (loads root .env)
+│   ├── ingest.py                 # LangChain Document chunker & Qdrant Cloud indexer (loads backend/.env)
 │   ├── test_backend.py           # Backend verification suite
 │   ├── app/
 │   │   ├── classifier.py         # Formulation decision tree state machine
-│   │   ├── retriever.py          # Qdrant Cloud retriever with 3-axis metadata filter (loads root .env)
+│   │   ├── retriever.py          # Qdrant Cloud retriever with 3-axis metadata filter (loads backend/.env)
 │   │   ├── llm.py                # LangChain ChatGroq LCEL grounded reasoning engine
 │   │   ├── citation_validator.py # Hard-block citation enforcement validator
 │   │   ├── rule_checks.py        # ABS compliance & TKDL prior-art pointers
@@ -78,11 +79,14 @@ prototype/
 │   └── data/
 │       └── ipsakti.db            # SQLite database (audit logs & metrics)
 └── frontend/
+    ├── .env                      # Frontend environment config (VITE_API_BASE_URL)
+    ├── .env.example              # Frontend environment template
+    ├── vercel.json               # Vercel SPA deployment configuration
     ├── index.html                # HTML entrypoint
     ├── vite.config.ts            # Vite config with API proxy
     ├── tailwind.config.js        # Tailwind CSS theme
     ├── src/
-    │   ├── main.tsx              # React DOM mounting
+    │   ├── main.tsx              # React DOM mounting & Axios baseURL config
     │   ├── App.tsx               # Root app layout & state management
     │   ├── types.ts              # TypeScript interface definitions
     │   ├── index.css             # Glassmorphism & badge styles
@@ -97,5 +101,6 @@ prototype/
 ---
 
 ## Current State
-- **Status:** Root `.env` loading added to `ingest.py` and `retriever.py`.
+- **Status:** Decoupled environment setup complete (`backend/.env` and `frontend/.env`). Render blueprint (`render.yaml`) and Vercel configuration (`frontend/vercel.json`) ready for cloud deployment.
+
 - **Ingestion & Search:** `ingest.py` uploads directly to Qdrant Cloud (`QdrantVectorStore`), and `retriever.py` queries Qdrant Cloud with 3-axis metadata filtering.
